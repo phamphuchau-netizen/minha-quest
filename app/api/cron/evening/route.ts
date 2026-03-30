@@ -16,13 +16,14 @@ export async function GET() {
     let message = '';
 
     if (!tasks || tasks.length === 0) {
-      message = '🌙 Chúc sếp Phúc Hậu ngủ ngon!\nHôm nay sếp đã hoàn thành xuất sắc mọi nhiệm vụ. Tuyệt vời quá! Nghỉ ngơi thôi sếp ơi 🛌💤';
+      message = '🌙 Chúc sếp Phúc Hậu ngủ ngon!\nHôm nay sếp đã hoàn thành xuất sắc mọi nhiệm vụ. Nghỉ ngơi thôi sếp ơi! 🛌';
     } else {
-      message = `🌙 Đã muộn rồi sếp Phúc Hậu ơi!\nHôm nay sếp đã vất vả rồi. Hiện tại mình còn ${tasks.length} việc chưa làm xong:\n\n`;
-      tasks.forEach((task, index) => {
-        message += `🔸 ${task.title}\n`;
+      message = `🌙 Đã muộn rồi sếp Phúc Hậu ơi!\nHôm nay sếp còn ${tasks.length} việc chưa kịp xong:\n\n`;
+      tasks.forEach((task: any, index: number) => {
+        const cat = task.category === 'cong_viec' ? '🏢' : '👤';
+        message += `${index + 1}. ${cat} ${task.title}\n`;
       });
-      message += '\nSếp cứ đi ngủ lấy sức đi nhé, mai mình cày tiếp! Chúc sếp ngủ ngon 🛌💤';
+      message += '\nSếp nghỉ sớm lấy sức mai mình xử lý nốt nhé! Chúc sếp ngủ ngon 🛌';
     }
 
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -31,8 +32,8 @@ export async function GET() {
       body: JSON.stringify({ chat_id: CHAT_ID, text: message }),
     });
 
-    return NextResponse.json({ success: true, message: "Đã gửi tổng kết buổi tối!" });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ success: false, error: "Lỗi rồi" }, { status: 500 });
+    return NextResponse.json({ success: false }, { status: 500 });
   }
 }
