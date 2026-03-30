@@ -20,7 +20,7 @@ export async function GET() {
       message = '🌅 Chào buổi sáng sếp Phúc Hậu!\nHiện tại sếp không có công việc nào tồn đọng cả. Chúc sếp một ngày mới thảnh thơi và tràn đầy năng lượng nhé! ☕';
     } else {
       message = `🌅 Chào buổi sáng sếp Phúc Hậu!\nChúc sếp một ngày làm việc năng suất. Dưới đây là ${tasks.length} việc sếp cần xử lý:\n\n`;
-      tasks.forEach((task, index) => {
+      tasks.forEach((task: any, index: number) => {
         const cat = task.category === 'cong_viec' ? '🏢' : '👤';
         const time = task.due_time ? ` (⏰ ${new Date(task.due_time).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})})` : '';
         message += `${index + 1}. ${cat} ${task.title}${time}\n`;
