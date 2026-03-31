@@ -14,23 +14,26 @@ export async function GET() {
     const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
     let message = '';
+    const pendingTasks: any[] = tasks || [];
 
-    if (!tasks || tasks.length === 0) {
+    if (pendingTasks.length === 0) {
       message = '🌙 Chúc sếp Phúc Hậu ngủ ngon!\nHôm nay sếp đã hoàn thành xuất sắc mọi nhiệm vụ. Nghỉ ngơi thôi sếp ơi! 🛌';
     } else {
-      message = `🌙 Đã muộn rồi sếp Phúc Hậu ơi!\nHôm nay sếp còn ${tasks.length} việc chưa kịp xong:\n\n`;
-      tasks.forEach((task: any, index: number) => {
+      message = `🌙 Đã muộn rồi sếp Phúc Hậu ơi!\nHôm nay sếp đã vất vả rồi. Hiện tại mình còn ${pendingTasks.length} việc chưa làm xong:\n\n`;
+      pendingTasks.forEach((task: any, index: number) => {
         const cat = task.category === 'cong_viec' ? '🏢' : '👤';
         message += `${index + 1}. ${cat} ${task.title}\n`;
       });
-      message += '\nSếp nghỉ sớm lấy sức mai mình xử lý nốt nhé! Chúc sếp ngủ ngon 🛌';
+      message += '\nSếp cứ đi ngủ lấy sức đi nhé, mai mình cày tiếp! Chúc sếp ngủ ngon 🛌💤';
     }
 
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: CHAT_ID, text: message }),
-    });
+    if (BOT_TOKEN && CHAT_ID) {
+      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: CHAT_ID, text: message }),
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
