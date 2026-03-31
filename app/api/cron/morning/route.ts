@@ -19,14 +19,15 @@ export async function GET() {
     if (pendingTasks.length === 0) {
       message = '🌅 Chào buổi sáng sếp Phúc Hậu!\nHiện tại sếp không có công việc nào tồn đọng cả. Chúc sếp một ngày mới thảnh thơi nhé! ☕';
     } else {
-      message = `🌅 Chào buổi sáng sếp Phúc Hậu!\nDưới đây là ${pendingTasks.length} việc sếp cần xử lý hôm nay:\n\n`;
+      message = `🌅 Chào buổi sáng sếp Phúc Hậu!\nDưới đây là ${pendingTasks.length} việc sếp cần xử lý:\n\n`;
       
       let index = 1;
       for (const task of pendingTasks) {
         const cat = task.category === 'cong_viec' ? '🏢' : '👤';
         let timeStr = '';
         if (task.due_time) {
-          timeStr = ` (⏰ ${new Date(task.due_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`;
+          // 👉 ĐÃ FIX: Ép múi giờ hiển thị luôn luôn là giờ Việt Nam
+          timeStr = ` (⏰ ${new Date(task.due_time).toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' })})`;
         }
         message += `${index}. ${cat} ${task.title}${timeStr}\n`;
         index++;
