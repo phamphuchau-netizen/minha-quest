@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+// SẾP LƯU Ý: Đảm bảo dòng import supabase này đúng với file cấu hình của sếp nhé (ví dụ: '@/lib/supabase' hoặc thư mục tương đương)
+import { supabase } from "@/lib/supabase"; 
 
 export default function Home() {
   const [tasks, setTasks] = useState([]);
@@ -7,12 +9,55 @@ export default function Home() {
   const [type, setType] = useState("Công việc");
   const [recurrence, setRecurrence] = useState("Làm 1 lần");
   const [deadline, setDeadline] = useState("");
-  const [endTime, setEndTime] = useState(""); // State mới cho ngày kết thúc
-  const [editingId, setEditingId] = useState(null); // State để biết đang sửa task nào
+  const [endTime, setEndTime] = useState(""); 
+  const [editingId, setEditingId] = useState(null); 
 
-  // Tạm ẩn hàm fetch/lưu dữ liệu để sếp tự dùng hàm cũ của sếp nhé
-  // ...
+  // 1. Hàm lấy dữ liệu từ Supabase khi mở web
+  const fetchTasks = async () => {
+    const { data, error } = await supabase
+      .from('reminders')
+      .select('*')
+      .order('deadline', { ascending: true });
+    
+    if (data) setTasks(data);
+    if (error) console.error("Lỗi tải dữ liệu:", error);
+  };
 
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  // 2. Hàm Lưu (Thêm mới hoặc Cập nhật)
+  const handleSaveTask = async () => {
+    if (!title || !deadline) {
+      alert("Sếp vui lòng nhập đủ Tên công việc và Hạn chót nhé!");
+      return;
+    }
+
+    const taskData = {
+      title,
+      type,
+      recurrence,
+      deadline,
+      end_time: endTime || null, // Nếu không chọn ngày kết thúc thì để null
+    };
+
+    if (editingId) {
+      // Đang ở chế độ Sửa -> Cập nhật dữ liệu
+      const { error } = await supabase.from('reminders').update(taskData).eq('id', editingId);
+      if (error) alert("Lỗi khi cập nhật!");
+    } else {
+      // Thêm mới
+      const { error } = await supabase.from('reminders').insert([taskData]);
+      if (error) alert("Lỗi khi thêm mới!");
+    }
+
+    // Xong việc thì reset form và tải lại danh sách
+    handleCancelEdit();
+    fetchTasks();
+  };
+
+  // 3. Hàm bấm Sửa (Đẩy dữ liệu lên form)
   const handleEdit = (task) => {
     setEditingId(task.id);
     setTitle(task.title);
@@ -20,10 +65,10 @@ export default function Home() {
     setRecurrence(task.recurrence);
     setDeadline(task.deadline);
     setEndTime(task.end_time || "");
-    // Cuộn lên form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // 4. Hàm Hủy Sửa (Làm trống form)
   const handleCancelEdit = () => {
     setEditingId(null);
     setTitle("");
@@ -31,7 +76,15 @@ export default function Home() {
     setEndTime("");
   };
 
-  // Lọc công việc
+  // 5. Hàm bấm "Xong!" (Xóa công việc)
+  const handleComplete = async (id) => {
+    const { error } = await supabase.from('reminders').delete().eq('id', id);
+    if (!error) {
+      fetchTasks(); // Tải lại danh sách sau khi xóa
+    }
+  };
+
+  // Phân loại công việc để hiển thị 2 cột
   const personalTasks = tasks.filter(t => t.type === "Cá nhân");
   const workTasks = tasks.filter(t => t.type === "Công việc");
 
@@ -85,18 +138,24 @@ export default function Home() {
           </div>
 
           <div className="flex gap-2">
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
+            <button 
+              onClick={handleSaveTask}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition"
+            >
               {editingId ? "CẬP NHẬT NHIỆM VỤ" : "THÊM NHIỆM VỤ"}
             </button>
             {editingId && (
-              <button onClick={handleCancelEdit} className="w-1/3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 rounded-lg transition">
+              <button 
+                onClick={handleCancelEdit} 
+                className="w-1/3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 rounded-lg transition"
+              >
                 HỦY
               </button>
             )}
           </div>
         </div>
 
-        {/* Danh sách Công việc - CHIA 2 CỘT TRÊN MÁY TÍNH */}
+        {/* Danh sách Công việc - CHIA 2 CỘT */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* Cột 1: Công việc */}
@@ -116,12 +175,13 @@ export default function Home() {
                     <button onClick={() => handleEdit(task)} className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-bold">
                       Sửa
                     </button>
-                    <button className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded-md text-sm font-bold">
+                    <button onClick={() => handleComplete(task.id)} className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded-md text-sm font-bold">
                       Xong!
                     </button>
                   </div>
                 </div>
               ))}
+              {workTasks.length === 0 && <p className="text-gray-400 text-sm italic">Chưa có công việc nào.</p>}
             </div>
           </div>
 
@@ -142,12 +202,13 @@ export default function Home() {
                     <button onClick={() => handleEdit(task)} className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-bold">
                       Sửa
                     </button>
-                    <button className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded-md text-sm font-bold">
+                    <button onClick={() => handleComplete(task.id)} className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded-md text-sm font-bold">
                       Xong!
                     </button>
                   </div>
                 </div>
               ))}
+              {personalTasks.length === 0 && <p className="text-gray-400 text-sm italic">Chưa có công việc nào.</p>}
             </div>
           </div>
 
