@@ -26,9 +26,6 @@ export async function GET() {
       const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
       for (const task of tasksToRemind) {
-        const timeString = new Date(task.due_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-        const message = `🚨 BÁO ĐỘNG ĐỎ SẾP ƠI!\n👉 Việc: "${task.title}"\n⏰ Sẽ hết hạn lúc ${timeString} (chỉ còn chưa tới 30 phút nữa!).\nSếp làm ngay đi nhé!`;
-
         if (BOT_TOKEN && CHAT_ID) {
           await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
             method: 'POST',

@@ -20,8 +20,6 @@ export async function GET() {
     if (pendingTasks.length === 0) {
       message = '🌅 Chào buổi sáng sếp Phúc Hậu!\nHiện tại sếp không có công việc nào tồn đọng cả. Chúc sếp một ngày mới thảnh thơi nhé! ☕';
     } else {
-      message = `🌅 Chào buổi sáng sếp Phúc Hậu!\nDưới đây là ${pendingTasks.length} việc sếp cần xử lý hôm nay:\n\n`;
-      pendingTasks.forEach((task: any, index: number) => {
         const cat = task.category === 'cong_viec' ? '🏢' : '👤';
         const time = task.due_time ? ` (⏰ ${new Date(task.due_time).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})})` : '';
         message += `${index + 1}. ${cat} ${task.title}${time}\n`;
