@@ -7,7 +7,7 @@ export default function Home() {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('cong_viec');
   const [dueTime, setDueTime] = useState('');
-  const [frequency, setFrequency] = useState('once'); // Mặc định là làm 1 lần
+  const [frequency, setFrequency] = useState('once');
   const [reminders, setReminders] = useState([]);
 
   useEffect(() => {
@@ -30,11 +30,16 @@ export default function Home() {
         title, 
         category, 
         due_time: dueTime || null, 
-        frequency, // Thêm dòng này để lưu chu kỳ
+        frequency, 
         is_completed: false 
       }
     ]);
-    if (!error) {
+    
+    // ĐOẠN NÀY ĐỂ BẮT LỖI NÈ SẾP
+    if (error) {
+      console.error("Lỗi chi tiết:", error);
+      alert("⚠️ Supabase báo lỗi sếp ơi: \n" + error.message);
+    } else {
       setTitle('');
       setDueTime('');
       setFrequency('once');
@@ -44,10 +49,8 @@ export default function Home() {
 
   const handleComplete = async (id: string, currentDueTime: string, freq: string) => {
     if (freq === 'once') {
-      // Nếu là việc 1 lần thì đánh dấu hoàn thành luôn
       await supabase.from('reminders').update({ is_completed: true }).eq('id', id);
     } else {
-      // Nếu là việc định kỳ, tính toán ngày tiếp theo
       let nextDate = new Date(currentDueTime);
       if (freq === 'daily') nextDate.setDate(nextDate.getDate() + 1);
       if (freq === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
@@ -56,7 +59,7 @@ export default function Home() {
       await supabase.from('reminders')
         .update({ 
           due_time: nextDate.toISOString(),
-          is_reminded_30m: false // Reset để bot lại nhắc tiếp vào lần sau
+          is_reminded_30m: false 
         })
         .eq('id', id);
     }
