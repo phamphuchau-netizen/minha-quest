@@ -1,221 +1,138 @@
-'use client'
+// @ts-nocheck
+"use client";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-
-export default function ReminderPage() {
-  const [reminders, setReminders] = useState<any[]>([])
-  const [titleInput, setTitleInput] = useState('')
-  const [category, setCategory] = useState('ca_nhan') // Mặc định là Cá nhân
-  const [dueTime, setDueTime] = useState('') // Lưu thời gian
-  const [loading, setLoading] = useState(true)
-
-  const fetchReminders = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('reminders')
-      .select('*')
-      .order('id', { ascending: false })
-    
-    if (error) {
-      console.error("Lỗi lấy dữ liệu:", error.message)
-    } else {
-      setReminders(data || [])
-    }
-    setLoading(false)
-  }
+export default function Home() {
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('cong_viec');
+  const [dueTime, setDueTime] = useState('');
+  const [frequency, setFrequency] = useState('once'); // Mặc định là làm 1 lần
+  const [reminders, setReminders] = useState([]);
 
   useEffect(() => {
-    fetchReminders()
-  }, [])
+    fetchReminders();
+  }, []);
 
-  const addReminder = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!titleInput.trim()) return
-
-    // Lưu vào Supabase kèm Category và Due Time
-    const { error } = await supabase
+  const fetchReminders = async () => {
+    const { data } = await supabase
       .from('reminders')
-      .insert([
-        { 
-          title: titleInput, 
-          description: '', 
-          is_completed: false,
-          category: category,
-          due_time: dueTime ? new Date(dueTime).toISOString() : null, // Chuyển đổi giờ chuẩn
-          status: 'pending'
-        }
-      ]) 
+      .select('*')
+      .eq('is_completed', false)
+      .order('due_time', { ascending: true });
+    setReminders(data || []);
+  };
 
-    if (error) {
-      alert("Lỗi rồi Phúc Hậu ơi: " + error.message)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { error } = await supabase.from('reminders').insert([
+      { 
+        title, 
+        category, 
+        due_time: dueTime || null, 
+        frequency, // Thêm dòng này để lưu chu kỳ
+        is_completed: false 
+      }
+    ]);
+    if (!error) {
+      setTitle('');
+      setDueTime('');
+      setFrequency('once');
+      fetchReminders();
+    }
+  };
+
+  const handleComplete = async (id: string, currentDueTime: string, freq: string) => {
+    if (freq === 'once') {
+      // Nếu là việc 1 lần thì đánh dấu hoàn thành luôn
+      await supabase.from('reminders').update({ is_completed: true }).eq('id', id);
     } else {
-      const taskName = titleInput;
-      const taskCat = category === 'cong_viec' ? '🏢 Công việc' : '👤 Cá nhân';
-      const taskTime = dueTime ? `\n⏰ Hạn chót: ${new Date(dueTime).toLocaleString('vi-VN')}` : '';
-
-      setTitleInput('')
-      setDueTime('')
-      fetchReminders()
-
-      // Báo cáo qua Telegram chi tiết hơn
-      try {
-        await fetch('/api/notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: `📝 Sếp vừa thêm việc mới!\n👉 ${taskName}\n🏷 Phân loại: ${taskCat}${taskTime}`
-          })
-        });
-      } catch (err) {
-        console.error("Lỗi gửi Telegram", err);
-      }
+      // Nếu là việc định kỳ, tính toán ngày tiếp theo
+      let nextDate = new Date(currentDueTime);
+      if (freq === 'daily') nextDate.setDate(nextDate.getDate() + 1);
+      if (freq === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+      if (freq === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
+      
+      await supabase.from('reminders')
+        .update({ 
+          due_time: nextDate.toISOString(),
+          is_reminded_30m: false // Reset để bot lại nhắc tiếp vào lần sau
+        })
+        .eq('id', id);
     }
-  }
-
-  const toggleComplete = async (id: number, currentStatus: boolean, title: string) => {
-    const { error } = await supabase
-      .from('reminders')
-      .update({ 
-        is_completed: !currentStatus,
-        status: !currentStatus ? 'completed' : 'pending' // Cập nhật cả cột status
-      })
-      .eq('id', id)
-    
-    if (!error) {
-      fetchReminders()
-      // Nếu vừa đánh dấu hoàn thành, báo luôn cho Telegram
-      if (!currentStatus) {
-        fetch('/api/notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: `✅ Sếp đã hoàn thành việc:\n👉 ${title}\nQuá xuất sắc! 🎉` })
-        });
-      }
-    }
-  }
-
-  const deleteReminder = async (id: number, title: string) => {
-    const { error } = await supabase
-      .from('reminders')
-      .delete()
-      .eq('id', id)
-    
-    if (!error) {
-      fetchReminders()
-      fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: `🗑 Sếp đã xóa việc:\n👉 ${title}` })
-      });
-    }
-  }
+    fetchReminders();
+  };
 
   return (
-    <main className="min-h-screen bg-slate-100 py-10 px-4">
-      <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+    <main className="max-w-2xl mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6 text-center">🚀 MINHA TECH - TASK MANAGER</h1>
+      
+      <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 border">
+        <div className="mb-4">
+          <input
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none focus:shadow-outline"
+            placeholder="Tên công việc sếp ơi..."
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+        </div>
         
-        <div className="bg-blue-600 p-6 text-white text-center">
-          <h1 className="text-2xl font-bold tracking-tight">MINHA TECH</h1>
-          <p className="text-blue-100 text-sm mt-1">Trợ lý nhắc việc của Phúc Hậu</p>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <select 
+            value={category} 
+            onChange={(e) => setCategory(e.target.value)}
+            className="block w-full border rounded py-2 px-3 bg-white"
+          >
+            <option value="cong_viec">🏢 Công việc</option>
+            <option value="ca_nhan">👤 Cá nhân</option>
+          </select>
+
+          <select 
+            value={frequency} 
+            onChange={(e) => setFrequency(e.target.value)}
+            className="block w-full border rounded py-2 px-3 bg-white"
+          >
+            <option value="once">🕒 Làm 1 lần</option>
+            <option value="daily">📅 Hằng ngày</option>
+            <option value="weekly">🗓️ Hằng tuần</option>
+            <option value="monthly">🌙 Hằng tháng</option>
+          </select>
         </div>
 
-        <div className="p-6">
-          <form onSubmit={addReminder} className="flex flex-col gap-3 mb-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <input
-              type="text"
-              value={titleInput}
-              onChange={(e) => setTitleInput(e.target.value)}
-              placeholder="Bạn định làm gì tiếp theo?"
-              className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 transition-all text-slate-700"
-            />
-            
-            <div className="flex gap-2">
-              <select 
-                value={category} 
-                onChange={(e) => setCategory(e.target.value)}
-                className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 text-slate-700 bg-white"
-              >
-                <option value="ca_nhan">👤 Cá nhân</option>
-                <option value="cong_viec">🏢 Công việc</option>
-              </select>
+        <div className="mb-4">
+          <input
+            type="datetime-local"
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:outline-none focus:shadow-outline"
+            value={dueTime}
+            onChange={(e) => setDueTime(e.target.value)}
+          />
+        </div>
 
-              <input 
-                type="datetime-local" 
-                value={dueTime}
-                onChange={(e) => setDueTime(e.target.value)}
-                className="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 text-slate-700 bg-white"
-              />
+        <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full">
+          THÊM NHIỆM VỤ
+        </button>
+      </form>
+
+      <div className="space-y-3">
+        {reminders.map((task) => (
+          <div key={task.id} className="flex items-center justify-between p-3 border rounded bg-gray-50">
+            <div>
+              <p className="font-semibold">{task.category === 'cong_viec' ? '🏢' : '👤'} {task.title}</p>
+              <p className="text-xs text-gray-500">
+                ⏰ {task.due_time ? new Date(task.due_time).toLocaleString('vi-VN') : 'Không hạn'} 
+                {task.frequency !== 'once' && ` | 🔄 ${task.frequency}`}
+              </p>
             </div>
-
             <button 
-              type="submit"
-              className="w-full mt-1 bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 active:scale-95 transition-all shadow-md"
+              onClick={() => handleComplete(task.id, task.due_time, task.frequency)}
+              className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
             >
-              Thêm công việc
+              Xong!
             </button>
-          </form>
-
-          <div className="space-y-4">
-            {loading ? (
-              <div className="flex justify-center py-10">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-            ) : reminders.length > 0 ? (
-              reminders.map((item) => (
-                <div 
-                  key={item.id}
-                  className="group flex flex-col p-4 bg-slate-50 border border-slate-100 rounded-xl hover:shadow-md transition-all"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={item.is_completed}
-                        onChange={() => toggleComplete(item.id, item.is_completed, item.title)}
-                        className="w-5 h-5 cursor-pointer accent-blue-600 rounded"
-                      />
-                      <span className={`text-lg transition-all ${item.is_completed ? 'line-through text-slate-400' : 'text-slate-700 font-medium'}`}>
-                        {item.title}
-                      </span>
-                    </div>
-                    
-                    <button 
-                      onClick={() => deleteReminder(item.id, item.title)}
-                      className="text-red-400 hover:text-red-600 p-2 transition-all"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                  
-                  {/* Hiển thị thêm thông tin nhỏ ở dưới */}
-                  <div className="flex gap-3 ml-8 mt-1 text-xs text-slate-500">
-                    <span className="bg-slate-200 px-2 py-1 rounded-md">
-                      {item.category === 'cong_viec' ? '🏢 Công việc' : '👤 Cá nhân'}
-                    </span>
-                    {item.due_time && (
-                      <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-md">
-                        ⏰ {new Date(item.due_time).toLocaleString('vi-VN')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-10 text-slate-400">
-                <p className="text-4xl mb-2">☕</p>
-                <p>Không có việc gì cần làm cả!</p>
-              </div>
-            )}
           </div>
-        </div>
-        
-        <div className="bg-slate-50 p-4 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-400 font-medium">Vận hành bởi MinHa Tech & Supabase</p>
-        </div>
+        ))}
       </div>
     </main>
-  )
+  );
 }
