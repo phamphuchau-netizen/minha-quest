@@ -1,131 +1,158 @@
-// @ts-nocheck
 "use client";
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from "react";
 
 export default function Home() {
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('cong_viec');
-  const [dueTime, setDueTime] = useState('');
-  const [frequency, setFrequency] = useState('once');
-  const [reminders, setReminders] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState("Công việc");
+  const [recurrence, setRecurrence] = useState("Làm 1 lần");
+  const [deadline, setDeadline] = useState("");
+  const [endTime, setEndTime] = useState(""); // State mới cho ngày kết thúc
+  const [editingId, setEditingId] = useState(null); // State để biết đang sửa task nào
 
-  useEffect(() => {
-    fetchReminders();
-  }, []);
+  // Tạm ẩn hàm fetch/lưu dữ liệu để sếp tự dùng hàm cũ của sếp nhé
+  // ...
 
-  const fetchReminders = async () => {
-    const { data } = await supabase
-      .from('reminders')
-      .select('*')
-      .eq('is_completed', false)
-      .order('due_time', { ascending: true });
-    setReminders(data || []);
+  const handleEdit = (task) => {
+    setEditingId(task.id);
+    setTitle(task.title);
+    setType(task.type);
+    setRecurrence(task.recurrence);
+    setDeadline(task.deadline);
+    setEndTime(task.end_time || "");
+    // Cuộn lên form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!dueTime) return alert("Sếp chọn giờ giúp em với!");
-
-    // FIX 1: Chuyển giờ địa phương sang ISO string chuẩn để Supabase không bị lệch múi giờ
-    const isoDueTime = new Date(dueTime).toISOString();
-
-    const { error } = await supabase.from('reminders').insert([
-      { 
-        title, 
-        category, 
-        description: "EMPTY", // FIX 2: Bơm dữ liệu giả vào để vượt qua hàng rào Not-Null của Supabase
-        due_time: isoDueTime, 
-        frequency, 
-        is_completed: false 
-      }
-    ]);
-    
-    if (error) {
-      alert("Lỗi Supabase: " + error.message);
-    } else {
-      setTitle('');
-      setDueTime('');
-      fetchReminders();
-      alert("Đã thêm thành công! Bot sẽ canh giờ báo sếp nhé.");
-    }
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setTitle("");
+    setDeadline("");
+    setEndTime("");
   };
 
-  const handleComplete = async (id: string, currentDueTime: string, freq: string) => {
-    if (freq === 'once') {
-      await supabase.from('reminders').update({ is_completed: true }).eq('id', id);
-    } else {
-      let nextDate = new Date(currentDueTime);
-      if (freq === 'daily') nextDate.setDate(nextDate.getDate() + 1);
-      if (freq === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
-      if (freq === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
-      
-      await supabase.from('reminders')
-        .update({ 
-          due_time: nextDate.toISOString(),
-          is_reminded_30m: false 
-        })
-        .eq('id', id);
-    }
-    fetchReminders();
-  };
+  // Lọc công việc
+  const personalTasks = tasks.filter(t => t.type === "Cá nhân");
+  const workTasks = tasks.filter(t => t.type === "Công việc");
 
   return (
-    <main className="max-w-2xl mx-auto p-4 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-bold mb-6 text-center text-blue-600">🚀 MINHA TASK MANAGER</h1>
-      
-      <form onSubmit={handleSubmit} className="bg-white shadow-lg rounded-xl p-6 mb-6 border border-blue-100">
-        <input
-          className="w-full p-3 mb-4 border rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-          placeholder="Việc gì quan trọng vậy sếp?"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-        />
-        
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <select value={category} onChange={(e) => setCategory(e.target.value)} className="p-3 border rounded-lg bg-white">
-            <option value="cong_viec">🏢 Công việc</option>
-            <option value="ca_nhan">👤 Cá nhân</option>
-          </select>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-800">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl md:text-3xl font-bold text-center text-blue-600 mb-6 flex items-center justify-center gap-2">
+          🚀 MINHA TASK MANAGER
+        </h1>
 
-          <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="p-3 border rounded-lg bg-white">
-            <option value="once">🕒 Làm 1 lần</option>
-            <option value="daily">📅 Hằng ngày</option>
-            <option value="weekly">🗓️ Hằng tuần</option>
-            <option value="monthly">🌙 Hằng tháng</option>
-          </select>
+        {/* Form Thêm/Sửa Công Việc */}
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-100 mb-8 max-w-lg mx-auto">
+          <input
+            type="text"
+            placeholder="Việc gì quan trọng vậy sếp?"
+            className="w-full p-3 border rounded-lg mb-4 focus:ring-2 focus:ring-blue-500"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <select className="p-3 border rounded-lg w-full" value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="Công việc">🏢 Công việc</option>
+              <option value="Cá nhân">👤 Cá nhân</option>
+            </select>
+            <select className="p-3 border rounded-lg w-full" value={recurrence} onChange={(e) => setRecurrence(e.target.value)}>
+              <option value="Làm 1 lần">⏱ Làm 1 lần</option>
+              <option value="Hàng ngày">🔄 Hàng ngày</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Bắt đầu / Hạn chót</label>
+              <input
+                type="datetime-local"
+                className="w-full p-3 border rounded-lg"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Kết thúc (Tùy chọn)</label>
+              <input
+                type="datetime-local"
+                className="w-full p-3 border rounded-lg"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
+              {editingId ? "CẬP NHẬT NHIỆM VỤ" : "THÊM NHIỆM VỤ"}
+            </button>
+            {editingId && (
+              <button onClick={handleCancelEdit} className="w-1/3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 rounded-lg transition">
+                HỦY
+              </button>
+            )}
+          </div>
         </div>
 
-        <input
-          type="datetime-local"
-          className="w-full p-3 mb-4 border rounded-lg outline-none"
-          value={dueTime}
-          onChange={(e) => setDueTime(e.target.value)}
-          required
-        />
-
-        <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all">
-          THÊM NHIỆM VỤ
-        </button>
-      </form>
-
-      <div className="space-y-3">
-        {reminders.map((task) => (
-          <div key={task.id} className="flex items-center justify-between p-4 border rounded-xl bg-white shadow-sm border-l-4 border-l-blue-500">
-            <div>
-              <p className="font-bold text-gray-800">{task.category === 'cong_viec' ? '🏢' : '👤'} {task.title}</p>
-              <p className="text-sm text-gray-500">
-                ⏰ {new Date(task.due_time).toLocaleString('vi-VN')}
-                {task.frequency !== 'once' && <span className="ml-2 text-blue-500 font-medium italic">🔄 {task.frequency}</span>}
-              </p>
+        {/* Danh sách Công việc - CHIA 2 CỘT TRÊN MÁY TÍNH */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          {/* Cột 1: Công việc */}
+          <div>
+            <h2 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">🏢 Danh sách Công việc</h2>
+            <div className="space-y-3">
+              {workTasks.map((task) => (
+                <div key={task.id} className="bg-white border-l-4 border-blue-500 p-4 rounded-lg shadow-sm flex justify-between items-center">
+                  <div>
+                    <h3 className="font-semibold text-gray-800">{task.title}</h3>
+                    <p className="text-sm text-gray-500">Bắt đầu: {new Date(task.deadline).toLocaleString()}</p>
+                    {task.end_time && (
+                      <p className="text-sm text-gray-500">Kết thúc: {new Date(task.end_time).toLocaleString()}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleEdit(task)} className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-bold">
+                      Sửa
+                    </button>
+                    <button className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded-md text-sm font-bold">
+                      Xong!
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <button onClick={() => handleComplete(task.id, task.due_time, task.frequency)} className="bg-green-100 text-green-700 px-4 py-2 rounded-lg font-bold hover:bg-green-200 transition-colors">
-              Xong!
-            </button>
           </div>
-        ))}
+
+          {/* Cột 2: Cá nhân */}
+          <div>
+            <h2 className="text-xl font-bold text-gray-700 mb-4 border-b pb-2">👤 Danh sách Cá nhân</h2>
+            <div className="space-y-3">
+              {personalTasks.map((task) => (
+                <div key={task.id} className="bg-white border-l-4 border-orange-400 p-4 rounded-lg shadow-sm flex justify-between items-center">
+                  <div>
+                    <h3 className="font-semibold text-gray-800">{task.title}</h3>
+                    <p className="text-sm text-gray-500">Bắt đầu: {new Date(task.deadline).toLocaleString()}</p>
+                    {task.end_time && (
+                      <p className="text-sm text-gray-500">Kết thúc: {new Date(task.end_time).toLocaleString()}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleEdit(task)} className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded-md text-sm font-bold">
+                      Sửa
+                    </button>
+                    <button className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded-md text-sm font-bold">
+                      Xong!
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
