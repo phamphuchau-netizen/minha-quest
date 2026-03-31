@@ -27,6 +27,10 @@ export async function GET() {
 
       for (const task of tasksToRemind) {
         if (BOT_TOKEN && CHAT_ID) {
+          
+          // 👉 ĐÃ FIX: Tạo nội dung tin nhắn đàng hoàng trước khi gửi
+          const message = `🚨 Sếp ơi! Còn 30 phút nữa là đến hạn công việc:\n👉 [${task.category === 'cong_viec' ? '🏢' : '👤'}] ${task.title}`;
+
           await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -42,7 +46,8 @@ export async function GET() {
     }
 
     return NextResponse.json({ success: true, count: tasksToRemind.length });
-  } catch (error) {
-    return NextResponse.json({ success: false }, { status: 500 });
+  } catch (error: any) {
+    console.error("Lỗi Cronjob: ", error); // Ghi log lỗi ra nếu có
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }
